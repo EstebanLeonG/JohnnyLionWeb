@@ -1,0 +1,70 @@
+name: Sync Vimeo
+
+on:
+  schedule:
+    # 5:00 AM en Miami: 10:00 UTC (EST) o 09:00 UTC (EDT). El paso "Check Miami hour" descarta el disparo sobrante.
+    - cron: '0 9 * * *'
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-vimeo
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Miami hour
+        id: gate
+        run: |
+          hour=$(TZ=America/New_York date +%H)
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$hour" != "05" ]; then
+            echo "Son las $hour:00 en Miami, no las 05:00. Se omite."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: npm ci
+
+      - name: Sync videos from Vimeo
+        if: steps.gate.outputs.run == 'true'
+        run: node scripts/sync-vimeo.mjs
+        env:
+          VIMEO_ACCESS_TOKEN: ${{ secrets.VIMEO_ACCESS_TOKEN }}
+          VIMEO_MUSIC_ALBUM_ID: ${{ secrets.VIMEO_MUSIC_ALBUM_ID }}
+          VIMEO_PUBLICIDAD_ALBUM_ID: ${{ secrets.VIMEO_PUBLICIDAD_ALBUM_ID }}
+          VIMEO_NARRATIVE_ALBUM_ID: ${{ secrets.VIMEO_NARRATIVE_ALBUM_ID }}
+          VIMEO_REEL_ALBUM_ID: ${{ secrets.VIMEO_REEL_ALBUM_ID }}
+
+      - name: Build check
+        if: steps.gate.outputs.run == 'true'
+        run: npm run build
+
+      - name: Commit changes
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          if git diff --quiet -- src/data/videos.json; then
+            echo "Sin cambios en videos.json."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/videos.json
+          git commit -m "chore: sync Vimeo videos"
+          git push
