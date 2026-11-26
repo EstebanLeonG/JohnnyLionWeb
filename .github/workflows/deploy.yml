@@ -1,6 +1,8 @@
-name: Sync Vimeo
+name: Sync Vimeo & Deploy
 
 on:
+  push:
+    branches: [main]
   schedule:
     # 5:00 AM en Miami: 10:00 UTC (EST) o 09:00 UTC (EDT). El paso "Check Miami hour" descarta el disparo sobrante.
     - cron: '0 9 * * *'
@@ -9,14 +11,19 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
-  group: sync-vimeo
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  sync:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Check Miami hour
         id: gate
@@ -43,7 +50,7 @@ jobs:
         run: npm ci
 
       - name: Sync videos from Vimeo
-        if: steps.gate.outputs.run == 'true'
+        if: steps.gate.outputs.run == 'true' && github.event_name != 'push'
         run: node scripts/sync-vimeo.mjs
         env:
           VIMEO_ACCESS_TOKEN: ${{ secrets.VIMEO_ACCESS_TOKEN }}
@@ -52,12 +59,15 @@ jobs:
           VIMEO_NARRATIVE_ALBUM_ID: ${{ secrets.VIMEO_NARRATIVE_ALBUM_ID }}
           VIMEO_REEL_ALBUM_ID: ${{ secrets.VIMEO_REEL_ALBUM_ID }}
 
-      - name: Build check
+      - name: Build
         if: steps.gate.outputs.run == 'true'
         run: npm run build
+        env:
+          VITE_SITE_URL: ${{ vars.VITE_SITE_URL || 'https://johnnylion.com' }}
 
-      - name: Commit changes
-        if: steps.gate.outputs.run == 'true'
+      # El push del bot no dispara otros workflows, por eso el deploy va en esta misma ejecución.
+      - name: Commit videos.json
+        if: steps.gate.outputs.run == 'true' && github.event_name != 'push'
         run: |
           if git diff --quiet -- src/data/videos.json; then
             echo "Sin cambios en videos.json."
@@ -68,3 +78,15 @@ jobs:
           git add src/data/videos.json
           git commit -m "chore: sync Vimeo videos"
           git push
+
+      - uses: actions/configure-pages@v5
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.gate.outputs.run == 'true'
+        with:
+          path: dist
+
+      - uses: actions/deploy-pages@v4
+        id: deployment
+        if: steps.gate.outputs.run == 'true'
