@@ -64,6 +64,8 @@ jobs:
         run: npm run build
         env:
           VITE_SITE_URL: ${{ vars.VITE_SITE_URL || 'https://johnnylion.com' }}
+          # Sin dominio propio el sitio cuelga de /JohnnyLionWeb/. Con dominio, define la variable VITE_BASE como /
+          VITE_BASE: ${{ vars.VITE_BASE || '/JohnnyLionWeb/' }}
 
       # El push del bot no dispara otros workflows, por eso el deploy va en esta misma ejecución.
       - name: Commit videos.json

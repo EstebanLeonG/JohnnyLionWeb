@@ -54,5 +54,8 @@ function seo(siteUrl: string): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
-  return { plugins: [react(), reelPosterPreload(), seo(env.VITE_SITE_URL ?? '')] }
+  return {
+    base: env.VITE_BASE || '/',
+    plugins: [react(), reelPosterPreload(), seo(env.VITE_SITE_URL ?? '')],
+  }
 })
