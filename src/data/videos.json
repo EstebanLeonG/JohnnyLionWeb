@@ -1,5 +1,17 @@
 [
   {
+    "vimeoId": "1250485872",
+    "title": "LA NOVIA / Leoni Torres",
+    "category": "music-videos",
+    "thumbnail": "https://i.vimeocdn.com/video/2231139736-d36c1a9d4e3e461f6817f19296471237ce77a1932539999f298ddc62e9e5c528-d"
+  },
+  {
+    "vimeoId": "1250152453",
+    "title": "AJÉ / Okan",
+    "category": "music-videos",
+    "thumbnail": "https://i.vimeocdn.com/video/2230781692-7a897e9c4d6fce1dba62e9390b1ec64a93722fc23e7b437b7b369bf4acb21c37-d"
+  },
+  {
     "vimeoId": "1180579156",
     "title": "AQUÍ ESTARÉ - Lucky Brown",
     "category": "music-videos",
@@ -15,7 +27,7 @@
     "vimeoId": "1179775322",
     "title": "VETE - Lucky Brown",
     "category": "music-videos",
-    "thumbnail": "https://i.vimeocdn.com/video/2142870982-8bc3633092acf1b763c3922acf32b273134318e7023f45359b5be90d25231c52-d"
+    "thumbnail": "https://i.vimeocdn.com/video/2231143089-d920e0e33d36c73ef464978a39c2f70cfb301a950003fd088a7d22307c217fc9-d"
   },
   {
     "vimeoId": "1179775080",
