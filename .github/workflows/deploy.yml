@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    # 5:00 AM en Miami: 10:00 UTC (EST) o 09:00 UTC (EDT). El paso "Check Miami hour" descarta el disparo sobrante.
-    - cron: '0 9 * * *'
-    - cron: '0 10 * * *'
+    # GitHub retrasa o pierde crons puntuales. Se dispara cada hora (minuto 7, fuera de la hora pico) y el paso
+    # "Check Miami time" deja pasar solo el primer disparo desde las 5:00 AM de Miami que aún no sincronizó hoy.
+    - cron: '7 9-23 * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,16 +25,38 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check Miami hour
+      - name: Miami time
+        id: miami
+        run: |
+          echo "date=$(TZ=America/New_York date +%F)" >> "$GITHUB_OUTPUT"
+          echo "hour=$(TZ=America/New_York date +%H)" >> "$GITHUB_OUTPUT"
+
+      # El marcador de "ya sincronizado hoy" es una entrada de caché; no genera commits.
+      - name: Check sync done today
+        id: done
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@v4
+        with:
+          path: .sync-marker
+          key: vimeo-sync-${{ steps.miami.outputs.date }}
+          lookup-only: true
+
+      - name: Check Miami time
         id: gate
         run: |
-          hour=$(TZ=America/New_York date +%H)
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$hour" != "05" ]; then
-            echo "Son las $hour:00 en Miami, no las 05:00. Se omite."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "$((10#${{ steps.miami.outputs.hour }}))" -lt 5 ]; then
+              echo "Aún no son las 05:00 en Miami. Se omite."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "${{ steps.done.outputs.cache-hit }}" = "true" ]; then
+              echo "Ya se sincronizó hoy. Se omite."
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         if: steps.gate.outputs.run == 'true'
@@ -92,3 +114,14 @@ jobs:
       - uses: actions/deploy-pages@v4
         id: deployment
         if: steps.gate.outputs.run == 'true'
+
+      - name: Mark sync done today
+        if: steps.gate.outputs.run == 'true' && github.event_name == 'schedule'
+        run: date > .sync-marker
+
+      - name: Save sync marker
+        if: steps.gate.outputs.run == 'true' && github.event_name == 'schedule'
+        uses: actions/cache/save@v4
+        with:
+          path: .sync-marker
+          key: vimeo-sync-${{ steps.miami.outputs.date }}
