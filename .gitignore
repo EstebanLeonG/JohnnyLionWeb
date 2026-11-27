@@ -4,6 +4,5 @@ dist
 .env.*
 !.env.example
 *.tsbuildinfo
-.sync-marker
 *.log
 .DS_Store
